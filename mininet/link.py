@@ -66,21 +66,28 @@ class Intf( object ):
 
     def ifconfig( self, *args ):
         "Configure ourselves using ifconfig"
-        return self.cmd( 'ifconfig', self.name, *args )
+        return self.cmd('ifconfig', self.name, *args)
 
-    def setIP( self, ipstr, prefixLen=None ):
+    def setIP( self, ipstr, prefixLen=8):
         """Set our IP address"""
         # This is a sign that we should perhaps rethink our prefix
         # mechanism and/or the way we specify IP addresses
+        # print prefixLen
         if '/' in ipstr:
             self.ip, self.prefixLen = ipstr.split( '/' )
-            return self.ifconfig( ipstr, 'up' )
+            result = self.ifconfig( ipstr, 'up' )
         else:
             if prefixLen is None:
                 raise Exception( 'No prefix length set for IP address %s'
                                  % ( ipstr, ) )
             self.ip, self.prefixLen = ipstr, prefixLen
-            return self.ifconfig( '%s/%s' % ( ipstr, prefixLen ) )
+            result = self.ifconfig('%s/%s' % (ipstr, prefixLen))
+        # Parche para que funcione con alpine linux
+        if "bad address" in result:
+            self.ifconfig(self.ip)
+            netmask = '.'.join([str((0xffffffff << (32 - int(self.prefixLen)) >> i) & 0xff)for i in [24, 16, 8, 0]])
+            result = self.ifconfig(self.ip + " netmask " + netmask)
+        return result
 
     def setMAC( self, macstr ):
         """Set the MAC address for an interface.
